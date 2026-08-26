@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     gnupg \
     lsb-release \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Docker CLI
@@ -38,4 +39,12 @@ RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | \
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | \
     sh -s -- -b /usr/local/bin
 
-USER jenkins
+# Configure Docker socket access at container startup.
+# Docker Desktop may expose /var/run/docker.sock with a host-specific GID,
+# so the entrypoint detects the GID and adds the Jenkins user to that group.
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+USER root
