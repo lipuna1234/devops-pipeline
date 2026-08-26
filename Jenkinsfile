@@ -22,7 +22,7 @@ pipeline {
             }
         }
 
-        stage('Discover Kubernetes') {
+        stage('Discover Kubernetes Live') {
             steps {
                 sh '''
                     set -e
@@ -40,6 +40,9 @@ pipeline {
 
                     echo "=== Existing ConfigMaps ==="
                     kubectl get configmaps -n "${NAMESPACE}" || true
+
+                    echo "=== Current ConfigMap for selected application ==="
+                    kubectl get configmap "${APP_NAME}-config" -n "${NAMESPACE}" -o yaml || true
                 '''
             }
         }
@@ -82,14 +85,18 @@ pipeline {
                         import_if_needed() {
                             RESOURCE="$1"
                             ID="$2"
+                            KIND="$3"
+                            NAME="$4"
+
                             if ! terraform state list | grep -Fxq "$RESOURCE"; then
-                                echo "Terraform state does not contain $RESOURCE"
-                                if kubectl get "$3" "$4" -n "${NAMESPACE}" >/dev/null 2>&1; then
+                                if kubectl get "$KIND" "$NAME" -n "${NAMESPACE}" >/dev/null 2>&1; then
                                     echo "Importing existing resource: $RESOURCE"
                                     terraform import "$RESOURCE" "$ID"
                                 else
                                     echo "Resource does not exist yet: $RESOURCE"
                                 fi
+                            else
+                                echo "Already managed by Terraform: $RESOURCE"
                             fi
                         }
 
@@ -112,6 +119,30 @@ pipeline {
             }
         }
 
+        stage('Prepare ConfigMap Variables') {
+            steps {
+                sh '''
+                    python3 - <<'PY'
+import json
+import os
+
+values = {}
+for line in os.environ.get("CONFIG_VALUES", "").splitlines():
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+    if "=" not in line:
+        raise SystemExit(f"Invalid ConfigMap entry: {line}")
+    key, value = line.split("=", 1)
+    values[key.strip()] = value.strip()
+
+with open("config.auto.tfvars.json", "w", encoding="utf-8") as f:
+    json.dump({"config": values}, f)
+PY
+                '''
+            }
+        }
+
         stage('Terraform Plan') {
             steps {
                 dir('terraform') {
@@ -123,7 +154,7 @@ pipeline {
                           -var="replicas=${REPLICAS}" \
                           -var="container_port=${CONTAINER_PORT}" \
                           -var="service_port=${SERVICE_PORT}" \
-                          -var='config={ENVIRONMENT="dev",LOG_LEVEL="INFO"}' \
+                          -var-file="../config.auto.tfvars.json" \
                           -out=tfplan
                     '''
                 }
@@ -150,6 +181,9 @@ pipeline {
     }
 
     post {
+        always {
+            sh 'rm -f config.auto.tfvars.json terraform/config.auto.tfvars.json terraform/tfplan 2>/dev/null || true'
+        }
         success {
             echo 'DevOps pipeline completed successfully.'
         }
