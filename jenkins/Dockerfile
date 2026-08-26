@@ -40,10 +40,11 @@ RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/
     sh -s -- -b /usr/local/bin
 
 # Configure Docker socket access at container startup.
-# Docker Desktop may expose /var/run/docker.sock with a host-specific GID,
-# so the entrypoint detects the GID and adds the Jenkins user to that group.
+# Docker Desktop may expose /var/run/docker.sock with a host-specific GID.
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Normalize Windows CRLF line endings so Linux can execute the script.
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
