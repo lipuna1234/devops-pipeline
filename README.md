@@ -1,10 +1,10 @@
 # 🚀 DevOps End-to-End CI/CD & DevSecOps Pipeline
 
-A hands-on DevOps/DevSecOps project being built from the ground up with open-source technologies.
+A hands-on DevOps/DevSecOps project built from the ground up with open-source technologies.
 
 The goal is to build and document a practical end-to-end environment covering CI/CD, code quality, security scanning, containerization, Kubernetes, GitOps, monitoring, logging, alerting, and observability.
 
-> 🚧 This project is under active development. The README will be updated as each phase is completed.
+> 🚧 This project is under active development. The README is updated as each phase is completed.
 
 ---
 
@@ -22,11 +22,21 @@ The goal is to build and document a practical end-to-end environment covering CI
 - ⛵ Helm
 - 🔐 Trivy
 
+### Jenkins DevOps Tooling
+
+A custom Jenkins image is being prepared under `jenkins/Dockerfile` with:
+
+- Docker CLI
+- kubectl
+- Terraform
+- Trivy
+
+Jenkins is connected to the Docker `kind` network so that the Jenkins container can reach the Kind Kubernetes API directly at `devops-control-plane:6443`.
+
 ### Planned
 
 - 🛡️ OWASP Dependency-Check
 - 📦 Harbor
-- 🏗️ Terraform
 - ⚙️ Ansible
 - 📊 Prometheus
 - 📈 Grafana
@@ -40,29 +50,20 @@ The goal is to build and document a practical end-to-end environment covering CI
 
 ## Phase 1 — Local DevOps Environment
 
-The initial local DevOps environment has been set up on Windows using Docker Desktop, Docker containers, and Kind Kubernetes.
+The local DevOps environment is running on Windows using Docker Desktop, Docker containers, and Kind Kubernetes.
 
 ### 1. Git & GitHub
 
 Git is installed on Windows.
 
-Verify Git:
-
 ```powershell
 git --version
-```
-
-Clone the project repository:
-
-```powershell
 git clone https://github.com/lipuna1234/devops-pipeline.git
 ```
 
 Repository:
 
-```text
-https://github.com/lipuna1234/devops-pipeline
-```
+`https://github.com/lipuna1234/devops-pipeline`
 
 ---
 
@@ -70,81 +71,122 @@ https://github.com/lipuna1234/devops-pipeline
 
 Docker Desktop is installed and running on Windows.
 
-Docker is used as the container runtime for Jenkins and SonarQube and also provides the environment used by Kind.
-
-Verify Docker:
-
 ```powershell
 docker --version
 docker ps
+docker network ls
 ```
+
+Docker provides the runtime for Jenkins, SonarQube, and Kind.
 
 ---
 
 ## 3. Jenkins
 
-Jenkins is running as a Docker container and will be used for CI/CD automation.
+Jenkins is running in Docker and is used for CI/CD automation.
 
-Pull the Jenkins image:
-
-```powershell
-docker pull jenkins/jenkins:lts
-```
-
-Create a persistent volume:
-
-```powershell
-docker volume create jenkins_home
-```
-
-Run Jenkins:
-
-```powershell
-docker run -d `
---name jenkins `
--p 8081:8080 `
--p 50000:50000 `
--v jenkins_home:/var/jenkins_home `
-jenkins/jenkins:lts
-```
-
-Check the container:
-
-```powershell
-docker ps
-```
-
-Jenkins is accessible locally at:
+Current local Jenkins endpoint:
 
 ```text
-http://localhost:8081
+http://localhost:8080
+```
+
+The repository also contains a custom Jenkins image definition:
+
+```text
+jenkins/
+└── Dockerfile
+```
+
+The image is designed to provide Jenkins with the command-line tools required by the pipeline: Docker CLI, kubectl, Terraform, and Trivy.
+
+Build the image locally:
+
+```powershell
+cd D:\devops-pipeline\jenkins
+docker build -t custom-jenkins-devops:latest .
+```
+
+> Do not delete the currently working Jenkins container until its persistent Jenkins home, Docker access, Kubernetes credentials, and `kind` network connection have been migrated to the custom image.
+
+### Jenkins → Kind Network
+
+Jenkins is connected to the Docker `kind` network:
+
+```powershell
+docker network connect kind jenkins
+```
+
+Verify:
+
+```powershell
+docker inspect jenkins --format "{{json .NetworkSettings.Networks}}"
+```
+
+The current setup has Jenkins on the `kind` network and the Kind control plane at:
+
+```text
+devops-control-plane:6443
+```
+
+Kubernetes API connectivity has been verified from Jenkins with:
+
+```powershell
+docker exec jenkins bash -c "curl -k https://devops-control-plane:6443/version"
+```
+
+This returned Kubernetes `v1.36.1`.
+
+### Jenkins Kubernetes Access
+
+The current Jenkins image does not yet contain kubectl. The target state is:
+
+```text
+Jenkins Container
+├── kubectl
+├── Terraform
+├── Trivy
+└── Docker CLI
+        |
+        v
+Kind Docker Network
+        |
+        v
+devops-control-plane:6443
+        |
+        v
+Kubernetes API
+```
+
+After the custom image and kubeconfig are configured, verify:
+
+```powershell
+docker exec jenkins kubectl get nodes
+docker exec jenkins kubectl get namespaces
+```
+
+Expected node state:
+
+```text
+devops-control-plane   Ready   control-plane
 ```
 
 ---
 
 ## 4. SonarQube
 
-SonarQube is running as a Docker container and will be used for static code analysis and code quality checks.
+SonarQube is running as a Docker container and will be used for static code analysis and quality gates.
 
-Pull the SonarQube image:
-
-```powershell
-docker pull sonarqube:lts-community
-```
-
-Run SonarQube:
-
-```powershell
-docker run -d `
---name sonarqube `
--p 9000:9000 `
-sonarqube:lts-community
-```
-
-SonarQube is accessible locally at:
+Current endpoint:
 
 ```text
 http://localhost:9000
+```
+
+Verify:
+
+```powershell
+docker ps
 ```
 
 ---
@@ -153,7 +195,7 @@ http://localhost:9000
 
 ## 5. Kind
 
-Kind (Kubernetes in Docker) is being used to create a local Kubernetes cluster.
+Kind (Kubernetes in Docker) is used to create the local Kubernetes cluster.
 
 ```powershell
 kind create cluster --name devops
@@ -162,15 +204,23 @@ kubectl get nodes
 kubectl cluster-info
 ```
 
-The Kind cluster provides the local Kubernetes environment for application deployment and GitOps testing.
+Current control-plane container:
+
+```text
+devops-control-plane
+```
+
+The Kind Docker network is:
+
+```text
+kind
+```
 
 ---
 
 # 🚀 Argo CD
 
 ## 6. Install Argo CD
-
-Argo CD is installed inside the Kind Kubernetes cluster and will be used for GitOps-based continuous delivery.
 
 ```powershell
 kubectl create namespace argocd
@@ -179,23 +229,7 @@ kubectl get pods -n argocd
 kubectl get svc -n argocd
 ```
 
-### Access Argo CD Locally
-
-```powershell
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-```
-
-Open:
-
-```text
-https://localhost:8080
-```
-
-Username:
-
-```text
-admin
-```
+Argo CD is used for GitOps-based continuous delivery.
 
 ---
 
@@ -203,14 +237,14 @@ admin
 
 ## 7. Install NGINX Ingress Controller
 
-NGINX Ingress Controller is being used to expose applications running inside the Kind Kubernetes cluster.
-
 ```powershell
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 kubectl get pods -n ingress-nginx
 kubectl get svc -n ingress-nginx
 kubectl get ingress -A
 ```
+
+NGINX Ingress is used to expose applications running in Kind.
 
 ---
 
@@ -220,13 +254,9 @@ kubectl get ingress -A
 
 Helm is installed on Windows and will be used as the Kubernetes package manager.
 
-Verify Helm:
-
 ```powershell
 helm version
 ```
-
-Helm will be used to install and manage components such as Harbor and the monitoring stack, and later to package the sample application.
 
 ---
 
@@ -234,26 +264,151 @@ Helm will be used to install and manage components such as Harbor and the monito
 
 ## 9. Trivy
 
-Trivy is installed and will be used for DevSecOps security scanning.
-
-Verify Trivy:
+Trivy is installed on the Windows environment and is planned for Jenkins filesystem, image, and Kubernetes configuration scanning.
 
 ```powershell
 trivy --version
 ```
 
-Planned Trivy usage includes:
+The custom Jenkins image also installs Trivy so the same scanner can be used inside CI.
 
-- Filesystem vulnerability scanning
-- Docker image vulnerability scanning
-- Kubernetes/configuration scanning
-- Jenkins security pipeline stages
+---
+
+# 🐍 Sample Application
+
+A sample Python application is included in the repository with tests and a Dockerfile.
+
+```text
+app/
+├── app.py
+├── requirements.txt
+└── test_app.py
+
+Dockerfile
+```
+
+The application is used to validate the complete CI/CD and DevSecOps workflow.
+
+---
+
+# 🏗️ Terraform + Jenkins + Kubernetes
+
+Terraform is being used to manage **application-owned Kubernetes resources**, while existing platform namespaces such as `argocd`, `ingress-nginx`, and `kube-system` are not blindly recreated.
+
+The Terraform configuration accepts runtime values for:
+
+- Namespace
+- Application name
+- Container image
+- Replica count
+- Container port
+- Service port
+- Environment-specific ConfigMap values
+
+Example:
+
+```text
+NAMESPACE=devops
+APP_NAME=devops-app
+APP_IMAGE=devops-app:25
+REPLICAS=3
+CONTAINER_PORT=5000
+SERVICE_PORT=80
+```
+
+Existing application Deployment, Service, and ConfigMap resources can be imported into Terraform state before applying changes.
+
+This prevents the pipeline from blindly attempting to recreate resources that already exist.
+
+---
+
+# 🔄 Jenkins Pipeline
+
+The repository contains a Declarative Jenkins pipeline in `Jenkinsfile`.
+
+The intended flow is:
+
+```text
+GitHub
+  |
+  v
+Jenkins
+  |
+  +--> Python Tests
+  |
+  +--> Docker Build
+  |
+  +--> Trivy Scan
+  |
+  +--> kubectl - discover live Kubernetes state
+  |
+  +--> Terraform Init
+  |
+  +--> Import existing application resources when required
+  |
+  +--> Terraform Plan
+  |
+  +--> Manual Approval
+  |
+  +--> Terraform Apply
+  |
+  +--> Verify Deployment
+  |
+  v
+Kubernetes / Kind
+```
+
+### Runtime Parameters
+
+The pipeline accepts:
+
+```text
+NAMESPACE
+APP_NAME
+APP_IMAGE
+REPLICAS
+CONTAINER_PORT
+SERVICE_PORT
+CONFIG_VALUES
+```
+
+The pipeline uses `kubectl` to inspect the live cluster before Terraform runs:
+
+```bash
+kubectl get namespaces
+kubectl get deployments -n <namespace>
+kubectl get services -n <namespace>
+kubectl get configmaps -n <namespace>
+```
+
+This means the pipeline is designed around the **current Kubernetes state**, rather than maintaining a hardcoded list of namespaces and applications.
+
+> Note: Jenkins must have kubectl installed and authenticated against the Kind cluster before this pipeline can run successfully.
+
+---
+
+# 🧩 Resource Ownership Model
+
+The project follows a simple ownership model:
+
+```text
+Platform Resources
+├── argocd             → Argo CD / platform setup
+├── ingress-nginx      → Ingress controller
+└── kube-system        → Kubernetes
+
+Application Resources
+└── selected namespace
+    ├── Deployment      → Terraform
+    ├── Service         → Terraform
+    └── ConfigMap       → Terraform
+```
+
+Terraform should manage resources that belong to the application. Existing resources that Terraform needs to own should be imported into Terraform state rather than recreated blindly.
 
 ---
 
 # 🏗️ Current Architecture
-
-The current environment is running locally on Windows:
 
 ```text
                          Windows
@@ -267,13 +422,15 @@ The current environment is running locally on Windows:
                  /         \       v
                 v           v  Kubernetes
              Jenkins     SonarQube   |
-                                   +-- Argo CD
-                                   |
-                                   +-- NGINX Ingress
-                                   |
-                                   +-- Helm
-                                   |
-                                   +-- Trivy
+                |                   +-- Argo CD
+                |                   +-- NGINX Ingress
+                |                   +-- Helm
+                |                   +-- Trivy
+                |
+                +-- kubectl
+                +-- Terraform
+                +-- Docker CLI
+                +-- Trivy
 ```
 
 ---
@@ -285,18 +442,26 @@ The current environment is running locally on Windows:
 | Docker Desktop | ✅ Completed |
 | Git | ✅ Installed |
 | GitHub Repository | ✅ Created |
-| Jenkins | ✅ Completed |
-| SonarQube | ✅ Completed |
+| Jenkins | ✅ Running |
+| SonarQube | ✅ Running |
 | Kind | ✅ Completed |
 | Kubernetes | ✅ Running through Kind |
+| Jenkins → Kind network | ✅ Connected |
+| Jenkins → Kubernetes API network test | ✅ Verified |
+| kubectl inside current Jenkins container | ⏳ Pending custom Jenkins image |
+| Jenkins Docker CLI | ⏳ Pending custom Jenkins image |
+| Jenkins Terraform | ⏳ Pending custom Jenkins image |
+| Jenkins Trivy | ⏳ Pending custom Jenkins image |
 | Argo CD | ✅ Installed |
-| Argo CD Local Access | ✅ Configured |
 | NGINX Ingress Controller | ✅ Installed |
 | Helm | ✅ Installed |
-| Trivy | ✅ Installed |
-| OWASP Dependency-Check | ⏳ Planned |
+| Trivy on Windows | ✅ Installed |
+| Sample Python application | ✅ Added |
+| Dockerfile | ✅ Added |
+| Dynamic Terraform variables | ✅ Added |
+| Dynamic Jenkins runtime parameters | ✅ Added |
 | Harbor | ⏳ Planned |
-| Terraform | ⏳ Planned |
+| OWASP Dependency-Check | ⏳ Planned |
 | Ansible | ⏳ Planned |
 | Prometheus | ⏳ Planned |
 | Grafana | ⏳ Planned |
@@ -306,7 +471,7 @@ The current environment is running locally on Windows:
 
 ---
 
-# 🧭 Planned Project Roadmap
+# 🧭 Project Roadmap
 
 ### Phase 1 — Foundation
 
@@ -320,34 +485,61 @@ The current environment is running locally on Windows:
 - [x] NGINX Ingress
 - [x] Helm
 - [x] Trivy
+- [x] Connect Jenkins to Kind Docker network
+- [x] Verify Jenkins can reach Kubernetes API
 
-### Phase 2 — Application
+### Phase 2 — Jenkins Build Environment
 
-- [ ] Create sample application
-- [ ] Add unit tests
-- [ ] Create Dockerfile
+- [x] Create custom Jenkins Dockerfile
+- [ ] Recreate Jenkins using custom image
+- [ ] Configure Docker CLI access
+- [ ] Configure kubectl
+- [ ] Configure Jenkins Kubernetes credentials
+- [ ] Verify `kubectl get nodes` from Jenkins
+- [ ] Verify Terraform from Jenkins
+- [ ] Verify Trivy from Jenkins
+
+### Phase 3 — Application
+
+- [x] Create sample Python application
+- [x] Add unit tests
+- [x] Create Dockerfile
 - [ ] Build and run application locally
 
-### Phase 3 — CI
+### Phase 4 — CI
 
+- [x] Create Jenkinsfile
 - [ ] Connect GitHub to Jenkins
-- [ ] Create Jenkinsfile
 - [ ] Automated checkout
-- [ ] Automated build
-- [ ] Automated tests
+- [ ] Automated Python tests
+- [ ] Docker build
 - [ ] SonarQube integration
 - [ ] Quality gate
 
-### Phase 4 — DevSecOps
+### Phase 5 — DevSecOps
 
 - [x] Install Trivy
-- [ ] Trivy filesystem scanning in Jenkins
-- [ ] Trivy container image scanning in Jenkins
+- [x] Add Trivy stage to Jenkins pipeline
+- [ ] Trivy filesystem scanning
+- [ ] Trivy container image scanning
 - [ ] Trivy Kubernetes/configuration scanning
 - [ ] OWASP Dependency-Check
 - [ ] Security gates in Jenkins
 
-### Phase 5 — Container Registry
+### Phase 6 — Kubernetes & Terraform
+
+- [x] Dynamic Terraform variables
+- [x] Existing resource import logic
+- [x] Dynamic Jenkins runtime parameters
+- [x] Live Kubernetes discovery with kubectl
+- [ ] Terraform plan/apply from Jenkins
+- [ ] Deploy sample application to Kind
+- [ ] Manage Deployment
+- [ ] Manage Service
+- [ ] Manage ConfigMap
+- [ ] Manage Ingress
+
+### Phase 7 — Container Registry
 
 - [ ] Install Harbor
 - [ ] Configure Harbor project
@@ -355,32 +547,13 @@ The current environment is running locally on Windows:
 - [ ] Image versioning
 - [ ] Integrate Harbor with Kubernetes
 
-### Phase 6 — Kubernetes
-
-- [ ] Create namespace through Terraform
-- [ ] Create Deployment
-- [ ] Create Service
-- [ ] Create Ingress
-- [ ] Deploy application to Kind
-
-### Phase 7 — Helm
+### Phase 8 — Helm
 
 - [x] Install Helm
 - [ ] Create Helm chart
 - [ ] Create values.yaml
 - [ ] Template Kubernetes resources
 - [ ] Deploy application using Helm
-- [ ] Use Helm for platform components
-
-### Phase 8 — Infrastructure as Code
-
-- [ ] Install Terraform
-- [ ] Configure Kubernetes provider
-- [ ] Manage Kubernetes namespaces with Terraform
-- [ ] Manage Services and application infrastructure with Terraform
-- [ ] Integrate Terraform plan/apply with Jenkins
-- [ ] Handle/import existing Kubernetes resources where required
-- [ ] Introduce Terraform state management
 
 ### Phase 9 — GitOps
 
@@ -454,13 +627,13 @@ The current environment is running locally on Windows:
                 Alertmanager
 ```
 
-Terraform will manage selected infrastructure/Kubernetes resources, with Jenkins executing the Terraform workflow where appropriate.
+Terraform manages selected application infrastructure/Kubernetes resources, while Jenkins executes CI and the Terraform workflow. Argo CD will later be used for the GitOps CD portion of the final architecture.
 
 ---
 
 # 📚 Project Objectives
 
-This project is intended to demonstrate practical knowledge of:
+This project demonstrates practical knowledge of:
 
 - CI/CD automation
 - Git and GitHub workflows
@@ -481,7 +654,7 @@ This project is intended to demonstrate practical knowledge of:
 - Distributed tracing and observability
 - Configuration management with Ansible
 
-The focus is on building the environment practically, understanding how the tools integrate with each other, and documenting problems and solutions encountered along the way.
+The focus is on building the environment practically, understanding how the tools integrate, and documenting problems and solutions encountered along the way.
 
 ---
 
@@ -489,4 +662,4 @@ The focus is on building the environment practically, understanding how the tool
 
 **Currently in development.**
 
-The local DevOps foundation is ready with Docker Desktop, Kind/Kubernetes, Jenkins, SonarQube, Argo CD, NGINX Ingress, Helm, and Trivy installed. The next milestone is to complete the remaining platform stack and then build the application and integrate the complete CI/CD and DevSecOps workflow.
+The local DevOps foundation is ready. Jenkins networking to the Kind Kubernetes API has been verified, and the repository now contains the custom Jenkins tooling definition, sample application, Terraform configuration, and parameterized Jenkins pipeline. The next milestone is to migrate Jenkins safely to the custom image and verify Docker, kubectl, Terraform, and Trivy from inside Jenkins.
