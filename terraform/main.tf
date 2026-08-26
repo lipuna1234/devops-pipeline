@@ -1,47 +1,53 @@
-resource "kubernetes_namespace" "devops" {
+data "kubernetes_namespace" "target" {
   metadata {
-    name = "devops"
+    name = var.namespace
   }
 }
 
 resource "kubernetes_deployment" "app" {
   metadata {
-    name      = "devops-app"
-    namespace = kubernetes_namespace.devops.metadata[0].name
+    name      = var.app_name
+    namespace = data.kubernetes_namespace.target.metadata[0].name
     labels = {
-      app = "devops-app"
+      app = var.app_name
     }
   }
 
   spec {
-    replicas = 2
+    replicas = var.replicas
 
     selector {
       match_labels = {
-        app = "devops-app"
+        app = var.app_name
       }
     }
 
     template {
       metadata {
         labels = {
-          app = "devops-app"
+          app = var.app_name
         }
       }
 
       spec {
         container {
-          name  = "devops-app"
+          name  = var.app_name
           image = var.app_image
 
           port {
-            container_port = 5000
+            container_port = var.container_port
+          }
+
+          env_from {
+            config_map_ref {
+              name = "${var.app_name}-config"
+            }
           }
 
           readiness_probe {
             http_get {
               path = "/health"
-              port = 5000
+              port = var.container_port
             }
             initial_delay_seconds = 5
             period_seconds        = 10
@@ -54,20 +60,29 @@ resource "kubernetes_deployment" "app" {
 
 resource "kubernetes_service" "app" {
   metadata {
-    name      = "devops-app-service"
-    namespace = kubernetes_namespace.devops.metadata[0].name
+    name      = "${var.app_name}-service"
+    namespace = data.kubernetes_namespace.target.metadata[0].name
   }
 
   spec {
     selector = {
-      app = "devops-app"
+      app = var.app_name
     }
 
     port {
-      port        = 80
-      target_port = 5000
+      port        = var.service_port
+      target_port = var.container_port
     }
 
     type = "ClusterIP"
   }
+}
+
+resource "kubernetes_config_map" "app" {
+  metadata {
+    name      = "${var.app_name}-config"
+    namespace = data.kubernetes_namespace.target.metadata[0].name
+  }
+
+  data = var.config
 }
