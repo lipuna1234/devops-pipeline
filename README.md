@@ -19,11 +19,11 @@ The goal is to build and document a practical end-to-end environment covering CI
 - ☸️ Kind Kubernetes
 - 🚀 Argo CD
 - 🌐 NGINX Ingress Controller
+- ⛵ Helm
+- 🔐 Trivy
 
 ### Planned
 
-- ⛵ Helm
-- 🔐 Trivy
 - 🛡️ OWASP Dependency-Check
 - 📦 Harbor
 - 🏗️ Terraform
@@ -120,15 +120,6 @@ Jenkins is accessible locally at:
 http://localhost:8081
 ```
 
-Get the initial administrator password:
-
-```powershell
-docker exec jenkins `
-cat /var/jenkins_home/secrets/initialAdminPassword
-```
-
-Jenkins will later be integrated with GitHub, SonarQube, security scanners, Docker, Harbor, and the deployment workflow.
-
 ---
 
 ## 4. SonarQube
@@ -150,19 +141,11 @@ docker run -d `
 sonarqube:lts-community
 ```
 
-Check the container:
-
-```powershell
-docker ps
-```
-
 SonarQube is accessible locally at:
 
 ```text
 http://localhost:9000
 ```
-
-SonarQube will later be integrated into the Jenkins pipeline with a quality gate.
 
 ---
 
@@ -172,27 +155,10 @@ SonarQube will later be integrated into the Jenkins pipeline with a quality gate
 
 Kind (Kubernetes in Docker) is being used to create a local Kubernetes cluster.
 
-Create the cluster:
-
 ```powershell
 kind create cluster --name devops
-```
-
-Check the Kind cluster:
-
-```powershell
 kind get clusters
-```
-
-Check Kubernetes nodes:
-
-```powershell
 kubectl get nodes
-```
-
-Check cluster information:
-
-```powershell
 kubectl cluster-info
 ```
 
@@ -206,35 +172,14 @@ The Kind cluster provides the local Kubernetes environment for application deplo
 
 Argo CD is installed inside the Kind Kubernetes cluster and will be used for GitOps-based continuous delivery.
 
-Create the Argo CD namespace:
-
 ```powershell
 kubectl create namespace argocd
-```
-
-Install Argo CD:
-
-```powershell
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-```
-
-Check Argo CD pods:
-
-```powershell
 kubectl get pods -n argocd
-```
-
-Check Argo CD services:
-
-```powershell
 kubectl get svc -n argocd
 ```
 
----
-
-## Access Argo CD Locally
-
-Argo CD can be accessed locally using Kubernetes port forwarding:
+### Access Argo CD Locally
 
 ```powershell
 kubectl port-forward svc/argocd-server -n argocd 8080:443
@@ -244,16 +189,6 @@ Open:
 
 ```text
 https://localhost:8080
-```
-
-Get the initial admin password:
-
-```powershell
-kubectl -n argocd get secret argocd-initial-admin-secret `
--o jsonpath="{.data.password}" | `
-[System.Text.Encoding]::UTF8.GetString(
-    [System.Convert]::FromBase64String($_)
-)
 ```
 
 Username:
@@ -270,29 +205,49 @@ admin
 
 NGINX Ingress Controller is being used to expose applications running inside the Kind Kubernetes cluster.
 
-Install the Kind-compatible NGINX Ingress Controller:
-
 ```powershell
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-```
-
-Check the NGINX Ingress pods:
-
-```powershell
 kubectl get pods -n ingress-nginx
-```
-
-Check the NGINX Ingress service:
-
-```powershell
 kubectl get svc -n ingress-nginx
-```
-
-Check ingress resources:
-
-```powershell
 kubectl get ingress -A
 ```
+
+---
+
+# ⛵ Helm
+
+## 8. Helm
+
+Helm is installed on Windows and will be used as the Kubernetes package manager.
+
+Verify Helm:
+
+```powershell
+helm version
+```
+
+Helm will be used to install and manage components such as Harbor and the monitoring stack, and later to package the sample application.
+
+---
+
+# 🔐 Trivy
+
+## 9. Trivy
+
+Trivy is installed and will be used for DevSecOps security scanning.
+
+Verify Trivy:
+
+```powershell
+trivy --version
+```
+
+Planned Trivy usage includes:
+
+- Filesystem vulnerability scanning
+- Docker image vulnerability scanning
+- Kubernetes/configuration scanning
+- Jenkins security pipeline stages
 
 ---
 
@@ -315,6 +270,10 @@ The current environment is running locally on Windows:
                                    +-- Argo CD
                                    |
                                    +-- NGINX Ingress
+                                   |
+                                   +-- Helm
+                                   |
+                                   +-- Trivy
 ```
 
 ---
@@ -333,8 +292,8 @@ The current environment is running locally on Windows:
 | Argo CD | ✅ Installed |
 | Argo CD Local Access | ✅ Configured |
 | NGINX Ingress Controller | ✅ Installed |
-| Helm | ⏳ Planned |
-| Trivy | ⏳ Planned |
+| Helm | ✅ Installed |
+| Trivy | ✅ Installed |
 | OWASP Dependency-Check | ⏳ Planned |
 | Harbor | ⏳ Planned |
 | Terraform | ⏳ Planned |
@@ -344,49 +303,6 @@ The current environment is running locally on Windows:
 | Loki | ⏳ Planned |
 | Alertmanager | ⏳ Planned |
 | OpenTelemetry | ⏳ Planned |
-
----
-
-# 🎯 Next Phase
-
-The next step is to create a small sample application and begin implementing the actual CI/CD pipeline.
-
-The initial target workflow will be:
-
-```text
-Developer
-   |
-   v
-GitHub
-   |
-   v
-Jenkins
-   |
-   +-- Checkout
-   +-- Build
-   +-- Test
-   +-- SonarQube Analysis
-   +-- Quality Gate
-   +-- Security Scanning
-   +-- Docker Build
-   |
-   v
-Harbor
-   |
-   v
-Kubernetes
-   |
-   v
-Argo CD
-   |
-   v
-NGINX Ingress
-   |
-   v
-Application
-```
-
-Later phases will add monitoring, logging, alerting, observability, Infrastructure as Code, and configuration management.
 
 ---
 
@@ -402,6 +318,8 @@ Later phases will add monitoring, logging, alerting, observability, Infrastructu
 - [x] SonarQube
 - [x] Argo CD
 - [x] NGINX Ingress
+- [x] Helm
+- [x] Trivy
 
 ### Phase 2 — Application
 
@@ -422,8 +340,10 @@ Later phases will add monitoring, logging, alerting, observability, Infrastructu
 
 ### Phase 4 — DevSecOps
 
-- [ ] Trivy filesystem scanning
-- [ ] Trivy container image scanning
+- [x] Install Trivy
+- [ ] Trivy filesystem scanning in Jenkins
+- [ ] Trivy container image scanning in Jenkins
+- [ ] Trivy Kubernetes/configuration scanning
 - [ ] OWASP Dependency-Check
 - [ ] Security gates in Jenkins
 
@@ -433,10 +353,11 @@ Later phases will add monitoring, logging, alerting, observability, Infrastructu
 - [ ] Configure Harbor project
 - [ ] Push Docker images from Jenkins
 - [ ] Image versioning
+- [ ] Integrate Harbor with Kubernetes
 
 ### Phase 6 — Kubernetes
 
-- [ ] Create namespace
+- [ ] Create namespace through Terraform
 - [ ] Create Deployment
 - [ ] Create Service
 - [ ] Create Ingress
@@ -444,12 +365,24 @@ Later phases will add monitoring, logging, alerting, observability, Infrastructu
 
 ### Phase 7 — Helm
 
+- [x] Install Helm
 - [ ] Create Helm chart
 - [ ] Create values.yaml
 - [ ] Template Kubernetes resources
 - [ ] Deploy application using Helm
+- [ ] Use Helm for platform components
 
-### Phase 8 — GitOps
+### Phase 8 — Infrastructure as Code
+
+- [ ] Install Terraform
+- [ ] Configure Kubernetes provider
+- [ ] Manage Kubernetes namespaces with Terraform
+- [ ] Manage Services and application infrastructure with Terraform
+- [ ] Integrate Terraform plan/apply with Jenkins
+- [ ] Handle/import existing Kubernetes resources where required
+- [ ] Introduce Terraform state management
+
+### Phase 9 — GitOps
 
 - [ ] Create Argo CD Application
 - [ ] Connect Argo CD to GitHub
@@ -457,7 +390,7 @@ Later phases will add monitoring, logging, alerting, observability, Infrastructu
 - [ ] Configure automated synchronization
 - [ ] Implement GitOps deployment workflow
 
-### Phase 9 — Monitoring & Observability
+### Phase 10 — Monitoring & Observability
 
 - [ ] Prometheus
 - [ ] Grafana
@@ -465,17 +398,14 @@ Later phases will add monitoring, logging, alerting, observability, Infrastructu
 - [ ] Alertmanager
 - [ ] OpenTelemetry
 
-### Phase 10 — Infrastructure & Configuration
+### Phase 11 — Configuration Management
 
-- [ ] Terraform
 - [ ] Ansible
-- [ ] Document infrastructure and configuration workflows
+- [ ] Document configuration management workflows
 
 ---
 
 # 🔄 Target End-to-End Architecture
-
-The final target architecture is planned as:
 
 ```text
                          Developer
@@ -489,7 +419,7 @@ The final target architecture is planned as:
           +------------------+------------------+
           |                  |                  |
           v                  v                  v
-       Build/Test        SonarQube       Security Scans
+       Build/Test        SonarQube       Trivy Security
                                               |
                               +---------------+
                               |
@@ -524,6 +454,8 @@ The final target architecture is planned as:
                 Alertmanager
 ```
 
+Terraform will manage selected infrastructure/Kubernetes resources, with Jenkins executing the Terraform workflow where appropriate.
+
 ---
 
 # 📚 Project Objectives
@@ -540,14 +472,14 @@ This project is intended to demonstrate practical knowledge of:
 - Private container registries
 - Kubernetes orchestration
 - Helm package management
+- Infrastructure as Code with Terraform
 - GitOps with Argo CD
 - Ingress and traffic management
 - Metrics and monitoring
 - Centralized logging
 - Alerting
 - Distributed tracing and observability
-- Infrastructure as Code
-- Configuration management
+- Configuration management with Ansible
 
 The focus is on building the environment practically, understanding how the tools integrate with each other, and documenting problems and solutions encountered along the way.
 
@@ -557,4 +489,4 @@ The focus is on building the environment practically, understanding how the tool
 
 **Currently in development.**
 
-The foundation of the local DevOps environment is ready. The next milestone is to create the application and implement the Jenkins CI pipeline step by step.
+The local DevOps foundation is ready with Docker Desktop, Kind/Kubernetes, Jenkins, SonarQube, Argo CD, NGINX Ingress, Helm, and Trivy installed. The next milestone is to complete the remaining platform stack and then build the application and integrate the complete CI/CD and DevSecOps workflow.
