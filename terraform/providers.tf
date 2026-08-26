@@ -10,6 +10,6 @@ terraform {
 }
 
 provider "kubernetes" {
-  config_path    = "~/.kube/config"
-  config_context = "kind-devops"
+  config_path    = var.kubeconfig_path
+  config_context = var.kube_context
 }
